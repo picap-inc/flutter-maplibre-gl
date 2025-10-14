@@ -390,10 +390,22 @@ final class MapLibreMapController
   }
 
   private void setGeoJsonSource(String sourceName, String geojson) {
+    // Validate style is not null before accessing sources
+    if (style == null) {
+      Log.e(TAG, "setGeoJsonSource: style is null, skipping operation for source: " + sourceName);
+      return;
+    }
+
     FeatureCollection featureCollection = FeatureCollection.fromJson(geojson);
     GeoJsonSource geoJsonSource = style.getSourceAs(sourceName);
-    addedFeaturesByLayer.put(sourceName, featureCollection);
 
+    // Validate source exists before trying to update it
+    if (geoJsonSource == null) {
+      Log.e(TAG, "setGeoJsonSource: source '" + sourceName + "' not found, skipping operation");
+      return;
+    }
+
+    addedFeaturesByLayer.put(sourceName, featureCollection);
     geoJsonSource.setGeoJson(featureCollection);
   }
 
@@ -1051,39 +1063,45 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
 
-          Layer layer = style.getLayer(layerId);
+          try {
+            Layer layer = style.getLayer(layerId);
 
-          if (layer != null) {
-            final PropertyValue[] properties;
+            if (layer != null) {
+              final PropertyValue[] properties;
 
-            if (layer instanceof LineLayer) {
-              properties = LayerPropertyConverter
-                  .interpretLineLayerProperties(call.argument("properties"));
-            } else if (layer instanceof FillLayer) {
-              properties = LayerPropertyConverter
-                  .interpretFillLayerProperties(call.argument("properties"));
-            } else if (layer instanceof CircleLayer) {
-              properties = LayerPropertyConverter
-                  .interpretCircleLayerProperties(call.argument("properties"));
-            } else if (layer instanceof SymbolLayer) {
-              properties = LayerPropertyConverter
-                  .interpretSymbolLayerProperties(call.argument("properties"));
-            } else if (layer instanceof RasterLayer) {
-              properties = LayerPropertyConverter
-                  .interpretRasterLayerProperties(call.argument("properties"));
-            } else if (layer instanceof HillshadeLayer) {
-              properties = LayerPropertyConverter
-                  .interpretHillshadeLayerProperties(call.argument("properties"));
+              if (layer instanceof LineLayer) {
+                properties = LayerPropertyConverter
+                    .interpretLineLayerProperties(call.argument("properties"));
+              } else if (layer instanceof FillLayer) {
+                properties = LayerPropertyConverter
+                    .interpretFillLayerProperties(call.argument("properties"));
+              } else if (layer instanceof CircleLayer) {
+                properties = LayerPropertyConverter
+                    .interpretCircleLayerProperties(call.argument("properties"));
+              } else if (layer instanceof SymbolLayer) {
+                properties = LayerPropertyConverter
+                    .interpretSymbolLayerProperties(call.argument("properties"));
+              } else if (layer instanceof RasterLayer) {
+                properties = LayerPropertyConverter
+                    .interpretRasterLayerProperties(call.argument("properties"));
+              } else if (layer instanceof HillshadeLayer) {
+                properties = LayerPropertyConverter
+                    .interpretHillshadeLayerProperties(call.argument("properties"));
+              } else {
+                result.error("UNSUPPORTED_LAYER_TYPE", "Layer type not supported", null);
+                return;
+              }
+              layer.setProperties(properties);
+              result.success(null);
             } else {
-              result.error("UNSUPPORTED_LAYER_TYPE", "Layer type not supported", null);
-              return;
+              result.error("LAYER_NOT_FOUND_ERROR", "Layer " + layerId + "not found", null);
             }
-            layer.setProperties(properties);
-            result.success(null);
-          } else {
-            result.error("LAYER_NOT_FOUND_ERROR", "Layer " + layerId + "not found", null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "layer#setProperties: Style is being replaced, skipping operation for layer: " + layerId);
+            result.success(null); // Silently succeed since style is transitioning
           }
 
           break;
@@ -1289,12 +1307,20 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
-          style.addImage(
-              call.argument("name"),
-              BitmapFactory.decodeByteArray(call.argument("bytes"), 0, call.argument("length")),
-              call.argument("sdf"));
-          result.success(null);
+
+          final String imageName = call.argument("name");
+          try {
+            style.addImage(
+                imageName,
+                BitmapFactory.decodeByteArray(call.argument("bytes"), 0, call.argument("length")),
+                call.argument("sdf"));
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#addImage: Style is being replaced, skipping operation for image: " + imageName);
+            result.success(null); // Silently succeed since style is transitioning
+          }
           break;
         }
       case "style#addImageSource":
@@ -1304,19 +1330,27 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
-          List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), false);
-          style.addSource(
-              new ImageSource(
-                  call.argument("imageSourceId"),
-                  new LatLngQuad(
-                      coordinates.get(0),
-                      coordinates.get(1),
-                      coordinates.get(2),
-                      coordinates.get(3)),
-                  BitmapFactory.decodeByteArray(
-                      call.argument("bytes"), 0, call.argument("length"))));
-          result.success(null);
+
+          final String imageSourceId = call.argument("imageSourceId");
+          try {
+            List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), false);
+            style.addSource(
+                new ImageSource(
+                    imageSourceId,
+                    new LatLngQuad(
+                        coordinates.get(0),
+                        coordinates.get(1),
+                        coordinates.get(2),
+                        coordinates.get(3)),
+                    BitmapFactory.decodeByteArray(
+                        call.argument("bytes"), 0, call.argument("length"))));
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#addImageSource: Style is being replaced, skipping operation for imageSource: " + imageSourceId);
+            result.success(null); // Silently succeed since style is transitioning
+          }
           break;
         }
         case "style#updateImageSource":
@@ -1326,30 +1360,52 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
-          ImageSource imageSource = style.getSourceAs(call.argument("imageSourceId"));
-          List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), false);
-          if (coordinates != null) {
-            imageSource.setCoordinates(
-                new LatLngQuad(
-                    coordinates.get(0),
-                    coordinates.get(1),
-                    coordinates.get(2),
-                    coordinates.get(3)));
+
+          final String imageSourceId = call.argument("imageSourceId");
+          try {
+            ImageSource imageSource = style.getSourceAs(imageSourceId);
+            List<LatLng> coordinates = Convert.toLatLngList(call.argument("coordinates"), false);
+            if (coordinates != null) {
+              imageSource.setCoordinates(
+                  new LatLngQuad(
+                      coordinates.get(0),
+                      coordinates.get(1),
+                      coordinates.get(2),
+                      coordinates.get(3)));
+            }
+            byte[] bytes = call.argument("bytes");
+            if (bytes != null) {
+              imageSource.setImage(BitmapFactory.decodeByteArray(bytes, 0, call.argument("length")));
+            }
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#updateImageSource: Style is being replaced, skipping operation for imageSource: " + imageSourceId);
+            result.success(null); // Silently succeed since style is transitioning
           }
-          byte[] bytes = call.argument("bytes");
-          if (bytes != null) {
-            imageSource.setImage(BitmapFactory.decodeByteArray(bytes, 0, call.argument("length")));
-          }
-          result.success(null);
           break;
         }
       case "style#addSource":
         {
+          if (style == null) {
+            result.error(
+                "STYLE IS NULL",
+                "The style is null. Has onStyleLoaded() already been invoked?",
+                null);
+            break;
+          }
+
           final String id = Convert.toString(call.argument("sourceId"));
           final Map<String, Object> properties = (Map<String, Object>) call.argument("properties");
-          SourcePropertyConverter.addSource(id, properties, style);
-          result.success(null);
+
+          try {
+            SourcePropertyConverter.addSource(id, properties, style);
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#addSource: Style is being replaced, skipping operation for source: " + id);
+            result.success(null); // Silently succeed since style is transitioning
+          }
           break;
         }
 
@@ -1360,9 +1416,17 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
-          style.removeSource((String) call.argument("sourceId"));
-          result.success(null);
+
+          String sourceId = (String) call.argument("sourceId");
+          try {
+            style.removeSource(sourceId);
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#removeSource: Style is being replaced, skipping operation for source: " + sourceId);
+            result.success(null); // Silently succeed since style is transitioning
+          }
           break;
         }
       case "style#addLayer":
@@ -1418,12 +1482,17 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
           String layerId = call.argument("layerId");
-          style.removeLayer(layerId);
-          interactiveFeatureLayerIds.remove(layerId);
-
-          result.success(null);
+          try {
+            style.removeLayer(layerId);
+            interactiveFeatureLayerIds.remove(layerId);
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#removeLayer: Style is being replaced, skipping operation for layer: " + layerId);
+            result.success(null); // Silently succeed since style is transitioning
+          }
           break;
         }
       case "map#setCameraBounds":
@@ -1453,37 +1522,43 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
           String layerId = call.argument("layerId");
           String filter = call.argument("filter");
 
-          Layer layer = style.getLayer(layerId);
+          try {
+            Layer layer = style.getLayer(layerId);
 
-          JsonParser parser = new JsonParser();
-          JsonElement jsonElement = parser.parse(filter);
-          Expression expression = Expression.Converter.convert(jsonElement);
+            JsonParser parser = new JsonParser();
+            JsonElement jsonElement = parser.parse(filter);
+            Expression expression = Expression.Converter.convert(jsonElement);
 
-          if (layer instanceof CircleLayer) {
-            ((CircleLayer) layer).setFilter(expression);
-          } else if (layer instanceof FillExtrusionLayer) {
-            ((FillExtrusionLayer) layer).setFilter(expression);
-          } else if (layer instanceof FillLayer) {
-            ((FillLayer) layer).setFilter(expression);
-          } else if (layer instanceof HeatmapLayer) {
-            ((HeatmapLayer) layer).setFilter(expression);
-          } else if (layer instanceof LineLayer) {
-            ((LineLayer) layer).setFilter(expression);
-          } else if (layer instanceof SymbolLayer) {
-            ((SymbolLayer) layer).setFilter(expression);
-          } else {
-            result.error(
-                "INVALID LAYER TYPE",
-                String.format("Layer '%s' does not support filtering.", layerId),
-                null);
-            break;
+            if (layer instanceof CircleLayer) {
+              ((CircleLayer) layer).setFilter(expression);
+            } else if (layer instanceof FillExtrusionLayer) {
+              ((FillExtrusionLayer) layer).setFilter(expression);
+            } else if (layer instanceof FillLayer) {
+              ((FillLayer) layer).setFilter(expression);
+            } else if (layer instanceof HeatmapLayer) {
+              ((HeatmapLayer) layer).setFilter(expression);
+            } else if (layer instanceof LineLayer) {
+              ((LineLayer) layer).setFilter(expression);
+            } else if (layer instanceof SymbolLayer) {
+              ((SymbolLayer) layer).setFilter(expression);
+            } else {
+              result.error(
+                  "INVALID LAYER TYPE",
+                  String.format("Layer '%s' does not support filtering.", layerId),
+                  null);
+              break;
+            }
+
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#setFilter: Style is being replaced, skipping operation for layer: " + layerId);
+            result.success(null); // Silently succeed since style is transitioning
           }
-
-          result.success(null);
           break;
         }
         case "style#getFilter":
@@ -1493,34 +1568,41 @@ final class MapLibreMapController
                     "STYLE IS NULL",
                     "The style is null. Has onStyleLoaded() already been invoked?",
                     null);
+            break;
           }
           Map<String, Object> reply = new HashMap<>();
           String layerId = call.argument("layerId");
-          Layer layer = style.getLayer(layerId);
 
-          Expression filter;
-          if (layer instanceof CircleLayer) {
-            filter = ((CircleLayer) layer).getFilter();
-          } else if (layer instanceof FillExtrusionLayer) {
-            filter = ((FillExtrusionLayer) layer).getFilter();
-          } else if (layer instanceof FillLayer) {
-            filter = ((FillLayer) layer).getFilter();
-          } else if (layer instanceof HeatmapLayer) {
-            filter = ((HeatmapLayer) layer).getFilter();
-          } else if (layer instanceof LineLayer) {
-            filter = ((LineLayer) layer).getFilter();
-          } else if (layer instanceof SymbolLayer) {
-            filter = ((SymbolLayer) layer).getFilter();
-          } else {
-            result.error(
-                    "INVALID LAYER TYPE",
-                    String.format("Layer '%s' does not support filtering.", layerId),
-                    null);
-            break;
+          try {
+            Layer layer = style.getLayer(layerId);
+
+            Expression filter;
+            if (layer instanceof CircleLayer) {
+              filter = ((CircleLayer) layer).getFilter();
+            } else if (layer instanceof FillExtrusionLayer) {
+              filter = ((FillExtrusionLayer) layer).getFilter();
+            } else if (layer instanceof FillLayer) {
+              filter = ((FillLayer) layer).getFilter();
+            } else if (layer instanceof HeatmapLayer) {
+              filter = ((HeatmapLayer) layer).getFilter();
+            } else if (layer instanceof LineLayer) {
+              filter = ((LineLayer) layer).getFilter();
+            } else if (layer instanceof SymbolLayer) {
+              filter = ((SymbolLayer) layer).getFilter();
+            } else {
+              result.error(
+                      "INVALID LAYER TYPE",
+                      String.format("Layer '%s' does not support filtering.", layerId),
+                      null);
+              break;
+            }
+
+            reply.put("filter", filter.toString());
+            result.success(reply);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#getFilter: Style is being replaced, skipping operation for layer: " + layerId);
+            result.success(reply); // Return empty reply since style is transitioning
           }
-
-          reply.put("filter", filter.toString());
-          result.success(reply);
           break;
         }
         case "layer#setVisibility":
@@ -1531,17 +1613,23 @@ final class MapLibreMapController
                 "STYLE IS NULL",
                 "The style is null. Has onStyleLoaded() already been invoked?",
                 null);
+            break;
           }
           String layerId = call.argument("layerId");
           boolean visible = call.argument("visible");
 
-          Layer layer = style.getLayer(layerId);
+          try {
+            Layer layer = style.getLayer(layerId);
 
-          if (layer != null) {
-            layer.setProperties(PropertyFactory.visibility(visible ? Property.VISIBLE : Property.NONE));
+            if (layer != null) {
+              layer.setProperties(PropertyFactory.visibility(visible ? Property.VISIBLE : Property.NONE));
+            }
+
+            result.success(null);
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "layer#setVisibility: Style is being replaced, skipping operation for layer: " + layerId);
+            result.success(null); // Silently succeed since style is transitioning
           }
-
-          result.success(null);
           break;
 
         }
