@@ -816,10 +816,20 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> setLayerVisibility(String layerId, bool visible) async {
-    await _channel.invokeMethod('layer#setVisibility', <String, dynamic>{
-      'layerId': layerId,
-      'visible': visible,
-    });
+    try {
+      await _channel.invokeMethod('layer#setVisibility', <String, dynamic>{
+        'layerId': layerId,
+        'visible': visible,
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException catch (e) {
+      // Plugin no disponible - mapa no inicializado o estilo no cargado
+      return Future.value();
+    } catch (e) {
+      // Layer no encontrado u otro error - ignorar silenciosamente
+      return Future.value();
+    }
   }
 
   @override
