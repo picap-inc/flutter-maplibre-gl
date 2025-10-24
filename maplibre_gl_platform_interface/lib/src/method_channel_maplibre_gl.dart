@@ -474,6 +474,12 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       });
     } on PlatformException catch (e) {
       return Future.error(e);
+    } on MissingPluginException catch (e) {
+      // Plugin no disponible - mapa no inicializado o estilo no cargado
+      return Future.value();
+    } catch (e) {
+      // Cualquier otro error
+      return Future.value();
     }
   }
 
@@ -491,6 +497,12 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       });
     } on PlatformException catch (e) {
       return Future.error(e);
+    } on MissingPluginException catch (e) {
+      // Plugin no disponible - mapa no inicializado o estilo no cargado
+      return Future.value();
+    } catch (e) {
+      // Cualquier otro error
+      return Future.value();
     }
   }
 
@@ -501,6 +513,12 @@ class MapLibreMethodChannel extends MapLibrePlatform {
           'style#removeLayer', <String, Object>{'layerId': imageLayerId});
     } on PlatformException catch (e) {
       return Future.error(e);
+    } on MissingPluginException catch (e) {
+      // Plugin no disponible - mapa no inicializado o estilo no cargado
+      return Future.value();
+    } catch (e) {
+      // Cualquier otro error
+      return Future.value();
     }
   }
 
