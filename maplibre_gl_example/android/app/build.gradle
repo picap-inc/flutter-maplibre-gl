@@ -24,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "org.maplibre.example"
-    compileSdkVersion 35
+    compileSdkVersion 36
     ndkVersion "28.1.13356709"
 
     compileOptions {
@@ -41,7 +41,7 @@ android {
     }
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

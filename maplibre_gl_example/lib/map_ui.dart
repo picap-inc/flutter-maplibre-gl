@@ -299,7 +299,7 @@ class MapUiBodyState extends State<MapUiBody> {
         if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("SW: ${result.southwest} NE: ${result.northeast}"),
+          content: Text("SW: ${result?.southwest} NE: ${result?.northeast}"),
         ));
       },
     );

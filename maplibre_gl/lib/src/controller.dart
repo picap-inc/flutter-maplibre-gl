@@ -113,12 +113,12 @@ class MapLibreMapController extends ChangeNotifier {
 
     _maplibrePlatform.onCameraMoveStartedPlatform.add((_) {
       _isCameraMoving = true;
-      notifyListeners();
+      _safeNotifyListeners();
     });
 
     _maplibrePlatform.onCameraMovePlatform.add((cameraPosition) {
       _cameraPosition = cameraPosition;
-      notifyListeners();
+      _safeNotifyListeners();
     });
 
     _maplibrePlatform.onCameraIdlePlatform.add((cameraPosition) {
@@ -127,7 +127,7 @@ class MapLibreMapController extends ChangeNotifier {
         _cameraPosition = cameraPosition;
       }
       onCameraIdle?.call();
-      notifyListeners();
+      _safeNotifyListeners();
     });
 
     _maplibrePlatform.onMapStyleLoadedPlatform.add((_) {
@@ -1031,6 +1031,7 @@ class MapLibreMapController extends ChangeNotifier {
   Future<Circle> addCircle(CircleOptions options, [Map? data]) async {
     final effectiveOptions = CircleOptions.defaultOptions.copyWith(options);
     final circle = Circle(getRandomString(), effectiveOptions, data);
+    if (circleManager == null) return circle;
     await circleManager!.add(circle);
     _safeNotifyListeners();
     return circle;
@@ -1051,6 +1052,7 @@ class MapLibreMapController extends ChangeNotifier {
         Circle(getRandomString(),
             CircleOptions.defaultOptions.copyWith(options[i]), data?[i])
     ];
+    if (circleManager == null) return cricles;
     await circleManager!.addAll(cricles);
 
     _safeNotifyListeners();
@@ -1065,7 +1067,17 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> updateCircle(Circle circle, CircleOptions changes) async {
-    circle.options = circle.options.copyWith(changes);
+    if (circleManager == null) return;
+
+    // Verify circle.options is not null before accessing
+    final currentOptions = circle.options;
+    if (currentOptions == null) return;
+
+    circle.options = currentOptions.copyWith(changes);
+
+    // Verify circleManager again in case controller was disposed during copyWith
+    if (circleManager == null) return;
+
     await circleManager!.set(circle);
 
     _safeNotifyListeners();
@@ -1086,6 +1098,7 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeCircle(Circle circle) async {
+    if (circleManager == null) return;
     circleManager!.remove(circle);
 
     _safeNotifyListeners();
@@ -1099,6 +1112,7 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeCircles(Iterable<Circle> circles) async {
+    if (circleManager == null) return;
     await circleManager!.removeAll(circles);
     _safeNotifyListeners();
   }
@@ -1110,6 +1124,7 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> clearCircles() async {
+    if (circleManager == null) return;
     circleManager!.clear();
 
     _safeNotifyListeners();
@@ -1643,8 +1658,12 @@ class MapLibreMapController extends ChangeNotifier {
 
   /// Safely notify listeners only if the controller is not disposed
   void _safeNotifyListeners() {
-    if (hasListeners) {
+    if (!hasListeners) return;
+
+    try {
       notifyListeners();
+    } catch (e) {
+      // Controller was disposed during operation, ignore
     }
   }
 
