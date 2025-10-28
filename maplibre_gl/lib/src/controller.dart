@@ -247,22 +247,22 @@ class MapLibreMapController extends ChangeNotifier {
   /// The current set of symbols on this map added with the [addSymbol] or [addSymbols] methods.
   ///
   /// The returned set will be a detached snapshot of the symbols collection.
-  Set<Symbol> get symbols => symbolManager!.annotations;
+  Set<Symbol> get symbols => symbolManager?.annotations ?? {};
 
   /// The current set of lines on this map added with the [addLine] or [addLines] methods.
   ///
   /// The returned set will be a detached snapshot of the lines collection.
-  Set<Line> get lines => lineManager!.annotations;
+  Set<Line> get lines => lineManager?.annotations ?? {};
 
   /// The current set of circles on this map added with the [addCircle] or [addCircles] methods.
   ///
   /// The returned set will be a detached snapshot of the circles collection.
-  Set<Circle> get circles => circleManager!.annotations;
+  Set<Circle> get circles => circleManager?.annotations ?? {};
 
   /// The current set of fills on this map added with the [addFill] or [addFills] methods.
   ///
   /// The returned set will be a detached snapshot of the fills collection.
-  Set<Fill> get fills => fillManager!.annotations;
+  Set<Fill> get fills => fillManager?.annotations ?? {};
 
   /// True if the map camera is currently moving.
   bool get isCameraMoving => _isCameraMoving;
@@ -849,8 +849,9 @@ class MapLibreMapController extends ChangeNotifier {
   Future<Symbol> addSymbol(SymbolOptions options, [Map? data]) async {
     final effectiveOptions = SymbolOptions.defaultOptions.copyWith(options);
     final symbol = Symbol(getRandomString(), effectiveOptions, data);
+    if (symbolManager == null) return symbol;
     await symbolManager!.add(symbol);
-    notifyListeners();
+    _safeNotifyListeners();
     return symbol;
   }
 
@@ -869,9 +870,10 @@ class MapLibreMapController extends ChangeNotifier {
         Symbol(getRandomString(),
             SymbolOptions.defaultOptions.copyWith(options[i]), data?[i])
     ];
+    if (symbolManager == null) return symbols;
     await symbolManager!.addAll(symbols);
 
-    notifyListeners();
+    _safeNotifyListeners();
     return symbols;
   }
 
@@ -883,10 +885,11 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> updateSymbol(Symbol symbol, SymbolOptions changes) async {
+    if (symbolManager == null) return;
     await symbolManager!
         .set(symbol..options = symbol.options.copyWith(changes));
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Retrieves the current position of the symbol.
@@ -904,8 +907,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeSymbol(Symbol symbol) async {
+    if (symbolManager == null) return;
     await symbolManager!.remove(symbol);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes the specified [symbols] from the map. The symbols must be current
@@ -916,8 +920,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeSymbols(Iterable<Symbol> symbols) async {
+    if (symbolManager == null) return;
     await symbolManager!.removeAll(symbols);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes all [symbols] from the map added with the [addSymbol] or [addSymbols] methods.
@@ -927,8 +932,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> clearSymbols() async {
+    if (symbolManager == null) return;
     symbolManager!.clear();
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Adds a line to the map, configured using the specified custom [options].
@@ -941,8 +947,9 @@ class MapLibreMapController extends ChangeNotifier {
   Future<Line> addLine(LineOptions options, [Map? data]) async {
     final effectiveOptions = LineOptions.defaultOptions.copyWith(options);
     final line = Line(getRandomString(), effectiveOptions, data);
+    if (lineManager == null) return line;
     await lineManager!.add(line);
-    notifyListeners();
+    _safeNotifyListeners();
     return line;
   }
 
@@ -960,9 +967,10 @@ class MapLibreMapController extends ChangeNotifier {
         Line(getRandomString(), LineOptions.defaultOptions.copyWith(options[i]),
             data?[i])
     ];
+    if (lineManager == null) return lines;
     await lineManager!.addAll(lines);
 
-    notifyListeners();
+    _safeNotifyListeners();
     return lines;
   }
 
@@ -974,9 +982,10 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> updateLine(Line line, LineOptions changes) async {
+    if (lineManager == null) return;
     line.options = line.options.copyWith(changes);
     await lineManager!.set(line);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Retrieves the current position of the line.
@@ -994,8 +1003,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeLine(Line line) async {
+    if (lineManager == null) return;
     await lineManager!.remove(line);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes the specified [lines] from the map. The lines must be current
@@ -1006,8 +1016,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeLines(Iterable<Line> lines) async {
+    if (lineManager == null) return;
     await lineManager!.removeAll(lines);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes all [lines] from the map added with the [addLine] or [addLines] methods.
@@ -1017,8 +1028,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> clearLines() async {
+    if (lineManager == null) return;
     await lineManager!.clear();
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Adds a circle to the map, configured using the specified custom [options].
@@ -1067,20 +1079,24 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> updateCircle(Circle circle, CircleOptions changes) async {
+    // Verify circleManager exists
     if (circleManager == null) return;
 
-    // Verify circle.options is not null before accessing
-    final currentOptions = circle.options;
-    if (currentOptions == null) return;
+    // Verify circle and its options are not null before accessing
+    if (circle.options == null) return;
 
-    circle.options = currentOptions.copyWith(changes);
+    try {
+      circle.options = circle.options.copyWith(changes);
 
-    // Verify circleManager again in case controller was disposed during copyWith
-    if (circleManager == null) return;
+      // Verify circleManager again in case controller was disposed during copyWith
+      if (circleManager == null) return;
 
-    await circleManager!.set(circle);
+      await circleManager!.set(circle);
 
-    _safeNotifyListeners();
+      _safeNotifyListeners();
+    } catch (e) {
+      // Handle any null pointer exceptions gracefully
+    }
   }
 
   /// Retrieves the current position of the circle.
@@ -1140,8 +1156,9 @@ class MapLibreMapController extends ChangeNotifier {
   Future<Fill> addFill(FillOptions options, [Map? data]) async {
     final effectiveOptions = FillOptions.defaultOptions.copyWith(options);
     final fill = Fill(getRandomString(), effectiveOptions, data);
+    if (fillManager == null) return fill;
     await fillManager!.add(fill);
-    notifyListeners();
+    _safeNotifyListeners();
     return fill;
   }
 
@@ -1160,9 +1177,10 @@ class MapLibreMapController extends ChangeNotifier {
         Fill(getRandomString(), FillOptions.defaultOptions.copyWith(options[i]),
             data?[i])
     ];
+    if (fillManager == null) return fills;
     await fillManager!.addAll(fills);
 
-    notifyListeners();
+    _safeNotifyListeners();
     return fills;
   }
 
@@ -1174,10 +1192,11 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> updateFill(Fill fill, FillOptions changes) async {
+    if (fillManager == null) return;
     fill.options = fill.options.copyWith(changes);
     await fillManager!.set(fill);
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes all [fills] from the map added with the [addFill] or [addFills] methods.
@@ -1187,9 +1206,10 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> clearFills() async {
+    if (fillManager == null) return;
     await fillManager!.clear();
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes the specified [fill] from the map. The fill must be a current
@@ -1200,8 +1220,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeFill(Fill fill) async {
+    if (fillManager == null) return;
     await fillManager!.remove(fill);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes the specified [fills] from the map. The fills must be current
@@ -1212,8 +1233,9 @@ class MapLibreMapController extends ChangeNotifier {
   ///
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeFills(Iterable<Fill> fills) async {
+    if (fillManager == null) return;
     await fillManager!.removeAll(fills);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Query rendered (i.e. visible) features at a point in screen coordinates

@@ -459,6 +459,12 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       );
     } on PlatformException catch (e) {
       return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
     }
   }
 
@@ -579,19 +585,43 @@ class MapLibreMethodChannel extends MapLibrePlatform {
   @override
   Future<void> addGeoJsonSource(String sourceId, Map<String, dynamic> geojson,
       {String? promoteId}) async {
-    await _channel.invokeMethod('source#addGeoJson', <String, dynamic>{
-      'sourceId': sourceId,
-      'geojson': jsonEncode(geojson),
-    });
+    try {
+      await _channel.invokeMethod('source#addGeoJson', <String, dynamic>{
+        'sourceId': sourceId,
+        'geojson': jsonEncode(geojson),
+      });
+    } on PlatformException catch (e) {
+      // Ignore style not loaded errors - style hasn't loaded yet
+      if (e.code == 'STYLE IS NULL') {
+        return;
+      }
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
   Future<void> setGeoJsonSource(
       String sourceId, Map<String, dynamic> geojson) async {
-    await _channel.invokeMethod('source#setGeoJson', <String, dynamic>{
-      'sourceId': sourceId,
-      'geojson': jsonEncode(geojson),
-    });
+    try {
+      await _channel.invokeMethod('source#setGeoJson', <String, dynamic>{
+        'sourceId': sourceId,
+        'geojson': jsonEncode(geojson),
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -624,18 +654,28 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       double? maxzoom,
       dynamic filter,
       required bool enableInteraction}) async {
-    await _channel.invokeMethod('symbolLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'sourceLayer': sourceLayer,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'filter': jsonEncode(filter),
-      'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('symbolLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'sourceLayer': sourceLayer,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'filter': jsonEncode(filter),
+        'enableInteraction': enableInteraction,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -647,28 +687,48 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       double? maxzoom,
       dynamic filter,
       required bool enableInteraction}) async {
-    await _channel.invokeMethod('lineLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'sourceLayer': sourceLayer,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'filter': jsonEncode(filter),
-      'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('lineLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'sourceLayer': sourceLayer,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'filter': jsonEncode(filter),
+        'enableInteraction': enableInteraction,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
   Future<void> setLayerProperties(
       String layerId, Map<String, dynamic> properties) async {
-    await _channel.invokeMethod('layer#setProperties', <String, dynamic>{
-      'layerId': layerId,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('layer#setProperties', <String, dynamic>{
+        'layerId': layerId,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -680,18 +740,28 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       double? maxzoom,
       dynamic filter,
       required bool enableInteraction}) async {
-    await _channel.invokeMethod('circleLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'sourceLayer': sourceLayer,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'filter': jsonEncode(filter),
-      'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('circleLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'sourceLayer': sourceLayer,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'filter': jsonEncode(filter),
+        'enableInteraction': enableInteraction,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -703,18 +773,28 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       double? maxzoom,
       dynamic filter,
       required bool enableInteraction}) async {
-    await _channel.invokeMethod('fillLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'sourceLayer': sourceLayer,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'filter': jsonEncode(filter),
-      'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('fillLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'sourceLayer': sourceLayer,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'filter': jsonEncode(filter),
+        'enableInteraction': enableInteraction,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -726,18 +806,28 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       double? maxzoom,
       dynamic filter,
       required bool enableInteraction}) async {
-    await _channel.invokeMethod('fillExtrusionLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'sourceLayer': sourceLayer,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'filter': jsonEncode(filter),
-      'enableInteraction': enableInteraction,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('fillExtrusionLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'sourceLayer': sourceLayer,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'filter': jsonEncode(filter),
+        'enableInteraction': enableInteraction,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -748,10 +838,24 @@ class MapLibreMethodChannel extends MapLibrePlatform {
 
   @override
   Future<void> addSource(String sourceId, SourceProperties properties) async {
-    await _channel.invokeMethod('style#addSource', <String, dynamic>{
-      'sourceId': sourceId,
-      'properties': properties.toJson(),
-    });
+    try {
+      await _channel.invokeMethod('style#addSource', <String, dynamic>{
+        'sourceId': sourceId,
+        'properties': properties.toJson(),
+      });
+    } on PlatformException catch (e) {
+      // Ignore style not loaded errors - style hasn't loaded yet
+      if (e.code == 'STYLE IS NULL') {
+        return;
+      }
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -761,15 +865,25 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       String? sourceLayer,
       double? minzoom,
       double? maxzoom}) async {
-    await _channel.invokeMethod('rasterLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('rasterLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -779,15 +893,25 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       String? sourceLayer,
       double? minzoom,
       double? maxzoom}) async {
-    await _channel.invokeMethod('hillshadeLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('hillshadeLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
@@ -797,24 +921,44 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       String? sourceLayer,
       double? minzoom,
       double? maxzoom}) async {
-    await _channel.invokeMethod('heatmapLayer#add', <String, dynamic>{
-      'sourceId': sourceId,
-      'layerId': layerId,
-      'belowLayerId': belowLayerId,
-      'minzoom': minzoom,
-      'maxzoom': maxzoom,
-      'properties': properties
-          .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
-    });
+    try {
+      await _channel.invokeMethod('heatmapLayer#add', <String, dynamic>{
+        'sourceId': sourceId,
+        'layerId': layerId,
+        'belowLayerId': belowLayerId,
+        'minzoom': minzoom,
+        'maxzoom': maxzoom,
+        'properties': properties
+            .map((key, value) => MapEntry<String, String>(key, jsonEncode(value)))
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
   Future<void> setFeatureForGeoJsonSource(
       String sourceId, Map<String, dynamic> geojsonFeature) async {
-    await _channel.invokeMethod('source#setFeature', <String, dynamic>{
-      'sourceId': sourceId,
-      'geojsonFeature': jsonEncode(geojsonFeature)
-    });
+    try {
+      await _channel.invokeMethod('source#setFeature', <String, dynamic>{
+        'sourceId': sourceId,
+        'geojsonFeature': jsonEncode(geojsonFeature)
+      });
+    } on PlatformException catch (e) {
+      return Future.error(e);
+    } on MissingPluginException {
+      // Map has been disposed, ignore
+      return;
+    } catch (e) {
+      // Catch any other exceptions
+      return Future.error(e);
+    }
   }
 
   @override
