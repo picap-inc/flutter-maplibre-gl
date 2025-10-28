@@ -473,7 +473,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         'maxzoom': maxzoom
       });
     } on PlatformException catch (e) {
-      return Future.error(e);
+      // Layer ya existe u otro error de plataforma - ignorar silenciosamente
+      return Future.value();
     } on MissingPluginException catch (e) {
       // Plugin no disponible - mapa no inicializado o estilo no cargado
       return Future.value();
@@ -496,7 +497,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         'maxzoom': maxzoom
       });
     } on PlatformException catch (e) {
-      return Future.error(e);
+      // Layer ya existe u otro error de plataforma - ignorar silenciosamente
+      return Future.value();
     } on MissingPluginException catch (e) {
       // Plugin no disponible - mapa no inicializado o estilo no cargado
       return Future.value();
@@ -512,7 +514,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
       return await _channel.invokeMethod(
           'style#removeLayer', <String, Object>{'layerId': imageLayerId});
     } on PlatformException catch (e) {
-      return Future.error(e);
+      // Layer ya existe u otro error de plataforma - ignorar silenciosamente
+      return Future.value();
     } on MissingPluginException catch (e) {
       // Plugin no disponible - mapa no inicializado o estilo no cargado
       return Future.value();
@@ -822,7 +825,8 @@ class MapLibreMethodChannel extends MapLibrePlatform {
         'visible': visible,
       });
     } on PlatformException catch (e) {
-      return Future.error(e);
+      // Layer ya existe u otro error de plataforma - ignorar silenciosamente
+      return Future.value();
     } on MissingPluginException catch (e) {
       // Plugin no disponible - mapa no inicializado o estilo no cargado
       return Future.value();
