@@ -1032,7 +1032,7 @@ class MapLibreMapController extends ChangeNotifier {
     final effectiveOptions = CircleOptions.defaultOptions.copyWith(options);
     final circle = Circle(getRandomString(), effectiveOptions, data);
     await circleManager!.add(circle);
-    notifyListeners();
+    _safeNotifyListeners();
     return circle;
   }
 
@@ -1053,7 +1053,7 @@ class MapLibreMapController extends ChangeNotifier {
     ];
     await circleManager!.addAll(cricles);
 
-    notifyListeners();
+    _safeNotifyListeners();
     return cricles;
   }
 
@@ -1068,7 +1068,7 @@ class MapLibreMapController extends ChangeNotifier {
     circle.options = circle.options.copyWith(changes);
     await circleManager!.set(circle);
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Retrieves the current position of the circle.
@@ -1088,7 +1088,7 @@ class MapLibreMapController extends ChangeNotifier {
   Future<void> removeCircle(Circle circle) async {
     circleManager!.remove(circle);
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes the specified [circles] from the map. The circles must be current
@@ -1100,7 +1100,7 @@ class MapLibreMapController extends ChangeNotifier {
   /// The returned [Future] completes once listeners have been notified.
   Future<void> removeCircles(Iterable<Circle> circles) async {
     await circleManager!.removeAll(circles);
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Removes all [circles] from the map added with the [addCircle] or [addCircles] methods.
@@ -1112,7 +1112,7 @@ class MapLibreMapController extends ChangeNotifier {
   Future<void> clearCircles() async {
     circleManager!.clear();
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   /// Adds a fill to the map, configured using the specified custom [options].
@@ -1638,6 +1638,13 @@ class MapLibreMapController extends ChangeNotifier {
           .toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  /// Safely notify listeners only if the controller is not disposed
+  void _safeNotifyListeners() {
+    if (hasListeners) {
+      notifyListeners();
     }
   }
 
