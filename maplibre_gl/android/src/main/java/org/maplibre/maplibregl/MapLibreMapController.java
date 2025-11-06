@@ -327,11 +327,15 @@ final class MapLibreMapController
   }
 
   String getLastLayerOnStyle(Style style) {
-    if (style != null) {
-      final List<Layer> layers = style.getLayers();
+    if (style != null && style.isFullyLoaded()) {
+      try {
+        final List<Layer> layers = style.getLayers();
 
-      if (layers.size() > 0) {
-        return layers.get(layers.size() - 1).getId();
+        if (layers.size() > 0) {
+          return layers.get(layers.size() - 1).getId();
+        }
+      } catch (IllegalStateException e) {
+        Log.w("MapLibreMapController", "Style state changed during getLastLayerOnStyle", e);
       }
     }
     return null;
@@ -673,20 +677,25 @@ final class MapLibreMapController
   }
 
   private Pair<Feature, String> firstFeatureOnLayers(RectF in) {
-    if (style != null) {
-      final List<Layer> layers = style.getLayers();
-      final List<String> layersInOrder = new ArrayList<String>();
-      for (Layer layer : layers) {
-        String id = layer.getId();
-        if (interactiveFeatureLayerIds.contains(id)) layersInOrder.add(id);
-      }
-      Collections.reverse(layersInOrder);
-
-      for (String id : layersInOrder) {
-        List<Feature> features = mapLibreMap.queryRenderedFeatures(in, id);
-        if (!features.isEmpty()) {
-          return new Pair<Feature, String>(features.get(0), id);
+    if (style != null && style.isFullyLoaded()) {
+      try {
+        final List<Layer> layers = style.getLayers();
+        final List<String> layersInOrder = new ArrayList<String>();
+        for (Layer layer : layers) {
+          String id = layer.getId();
+          if (interactiveFeatureLayerIds.contains(id)) layersInOrder.add(id);
         }
+        Collections.reverse(layersInOrder);
+
+        for (String id : layersInOrder) {
+          List<Feature> features = mapLibreMap.queryRenderedFeatures(in, id);
+          if (!features.isEmpty()) {
+            return new Pair<Feature, String>(features.get(0), id);
+          }
+        }
+      } catch (IllegalStateException e) {
+        // Style is being updated, ignore this click event
+        Log.w("MapLibreMapController", "Style state changed during feature query, ignoring click", e);
       }
     }
     return null;
@@ -1678,15 +1687,25 @@ final class MapLibreMapController
                     "STYLE IS NULL",
                     "The style is null. Has onStyleLoaded() already been invoked?",
                     null);
+            break;
           }
           Map<String, Object> reply = new HashMap<>();
 
-          List<String> layerIds = new ArrayList<>();
-          for (Layer layer : style.getLayers()) {
-            layerIds.add(layer.getId());
+          try {
+            if (style.isFullyLoaded()) {
+              List<String> layerIds = new ArrayList<>();
+              for (Layer layer : style.getLayers()) {
+                layerIds.add(layer.getId());
+              }
+              reply.put("layers", layerIds);
+            } else {
+              reply.put("layers", new ArrayList<String>());
+            }
+          } catch (IllegalStateException e) {
+            Log.w(TAG, "style#getLayerIds: Style state changed during operation", e);
+            reply.put("layers", new ArrayList<String>());
           }
 
-          reply.put("layers", layerIds);
           result.success(reply);
           break;
         }
