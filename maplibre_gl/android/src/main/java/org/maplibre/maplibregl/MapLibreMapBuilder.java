@@ -32,6 +32,10 @@ class MapLibreMapBuilder implements MapLibreMapOptionsSink {
       BinaryMessenger messenger,
       MapLibreMapsPlugin.LifecycleProvider lifecycleProvider) {
 
+    // Request garbage collection to help release resources from previous map instances
+    // This helps prevent OutOfMemoryError: pthread_create when many maps are created
+    System.gc();
+
     final MapLibreMapController controller =
         new MapLibreMapController(
             id, context, messenger, lifecycleProvider, options, styleString, dragEnabled);
