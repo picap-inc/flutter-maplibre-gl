@@ -110,6 +110,44 @@ class SourcePropertyConverter {
     return options;
   }
 
+  /**
+   * Signature of the {@link GeoJsonOptions} in these properties. Options only apply when the
+   * source is built, so a live source can only be reused for an {@code addSource} whose
+   * signature matches.
+   */
+  static String geojsonOptionsKey(Map<String, Object> properties) {
+    final String[] keys = {
+      "buffer", "cluster", "clusterMaxZoom", "clusterRadius",
+      "lineMetrics", "maxZoom", "minZoom", "tolerance"
+    };
+    StringBuilder key = new StringBuilder();
+    for (String name : keys) {
+      key.append(name).append('=').append(properties.get(name)).append(';');
+    }
+    return key.toString();
+  }
+
+  /**
+   * Dumps the data in these properties onto an already existing GeoJSON source, instead of
+   * building another one. Returns false if the properties carry no usable data.
+   */
+  static boolean applyGeojsonData(GeoJsonSource source, Map<String, Object> properties) {
+    final Object data = properties.get("data");
+    if (data == null) {
+      return false;
+    }
+    if (data instanceof String) {
+      try {
+        source.setUri(new URI(Convert.toString(data)));
+        return true;
+      } catch (URISyntaxException e) {
+        return false;
+      }
+    }
+    source.setGeoJson(FeatureCollection.fromJson(new Gson().toJson(data)));
+    return true;
+  }
+
   static GeoJsonSource buildGeojsonSource(String id, Map<String, Object> properties) {
     final Object data = properties.get("data");
     final GeoJsonOptions options = buildGeojsonOptions(properties);
