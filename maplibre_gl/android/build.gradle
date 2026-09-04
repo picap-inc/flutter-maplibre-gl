@@ -32,7 +32,7 @@ android {
     ndkVersion "28.1.13356709"
 
     defaultConfig {
-        minSdkVersion 21
+        minSdkVersion 23
         compileSdk 35
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
@@ -47,8 +47,21 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_1_8
     }
+    configurations.all {
+        // 13.x swapped the artifacts around: 'android-sdk' became Vulkan and
+        // 'android-sdk-opengl' keeps OpenGL ES (the backend we were already using
+        // on 11.9.0). Exclude the Vulkan one so the annotation/offline plugins'
+        // transitive deps don't pull it back in and duplicate classes.
+        exclude group: 'org.maplibre.gl', module: 'android-sdk'
+    }
     dependencies {
-        implementation 'org.maplibre.gl:android-sdk:11.9.0'
+        // 11.9.0 -> 13.6.0 because of the SIGSEGV in mbgl::MessageImpl<...GeoJSONData...>:
+        // the Android binding captured a raw 'this' in GeoJSONSource::setAsync's
+        // async callback, so destroying the source (removeSource, style reload,
+        // MapView dispose) while the Java->core conversion was still in flight ran
+        // the reply against freed memory. Fixed upstream in maplibre-native#3976,
+        // shipped in 13.0.0. We stay on the OpenGL variant to keep the same renderer.
+        implementation 'org.maplibre.gl:android-sdk-opengl:13.6.0'
         implementation 'org.maplibre.gl:android-plugin-annotation-v9:3.0.2'
         implementation 'org.maplibre.gl:android-plugin-offline-v9:3.0.2'
         implementation 'com.squareup.okhttp3:okhttp:4.12.0'

@@ -88,6 +88,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -148,12 +149,39 @@ final class MapLibreMapController
   private Set<String> interactiveFeatureLayerIds;
   private Map<String, FeatureCollection> addedFeaturesByLayer;
 
+  /**
+   * GeoJSON source recycling.
+   *
+   * <p>The native binding converts GeoJSON from Java to core on a background thread and
+   * delivers the result through an Actor. Destroying the source while that conversion is
+   * still in flight runs the reply against freed memory (SIGSEGV in
+   * {@code mbgl::MessageImpl<...GeoJSONData...>}). Instead of destroying them we empty them
+   * and keep them around for the next {@code addSource} with the same options: with no
+   * source destroyed there is no dangling pointer, and an empty source with no layer is
+   * visually indistinguishable from one that does not exist.
+   */
+  private final Map<String, String> geoJsonSourceOptions = new HashMap<>();
+
+  /** Sources emptied instead of destroyed, in recycling order (the first one is the oldest). */
+  private final LinkedHashSet<String> recycledGeoJsonSources = new LinkedHashSet<>();
+
+  /**
+   * Cap on live recycled sources. Past it we do destroy the oldest ones: they have been empty
+   * for a while, so their conversion has finished and the use-after-free window is closed.
+   */
+  private static final int MAX_RECYCLED_GEOJSON_SOURCES = 48;
+
   private LatLngBounds bounds = null;
   Style.OnStyleLoaded onStyleLoadedCallback =
       new Style.OnStyleLoaded() {
         @Override
         public void onStyleLoaded(@NonNull Style style) {
           MapLibreMapController.this.style = style;
+
+          // A new style brings its own set of sources: whatever we had registered for the
+          // previous one no longer exists.
+          geoJsonSourceOptions.clear();
+          recycledGeoJsonSources.clear();
 
           // commented out while cherry-picking upstream956
           // if (myLocationEnabled) {
@@ -386,11 +414,110 @@ final class MapLibreMapController
   }
 
   private void addGeoJsonSource(String sourceName, String source) {
+    if (style == null) {
+      Log.e(TAG, "addGeoJsonSource: style is null, skipping operation for source: " + sourceName);
+      return;
+    }
+
     FeatureCollection featureCollection = FeatureCollection.fromJson(source);
-    GeoJsonSource geoJsonSource = new GeoJsonSource(sourceName, featureCollection);
     addedFeaturesByLayer.put(sourceName, featureCollection);
 
-    style.addSource(geoJsonSource);
+    // If the source is still alive (recycled or not), fill it instead of creating another
+    // one: creating one with an existing id throws, and destroying the previous one is
+    // exactly what crashes.
+    GeoJsonSource existing = getGeoJsonSourceOrNull(sourceName);
+    if (existing != null) {
+      existing.setGeoJson(featureCollection);
+      recycledGeoJsonSources.remove(sourceName);
+      return;
+    }
+
+    style.addSource(new GeoJsonSource(sourceName, featureCollection));
+    geoJsonSourceOptions.put(
+        sourceName, SourcePropertyConverter.geojsonOptionsKey(Collections.emptyMap()));
+  }
+
+  /** The {@code sourceId} source if it exists and is GeoJSON; null in any other case. */
+  private GeoJsonSource getGeoJsonSourceOrNull(String sourceId) {
+    if (style == null) {
+      return null;
+    }
+    try {
+      Source source = style.getSource(sourceId);
+      return source instanceof GeoJsonSource ? (GeoJsonSource) source : null;
+    } catch (IllegalStateException e) {
+      // The style is being replaced.
+      return null;
+    }
+  }
+
+  /**
+   * Empties the GeoJSON source and leaves it recycled instead of destroying it. Returns false if
+   * it was not a GeoJSON source, in which case it has to be removed the normal way.
+   */
+  private boolean recycleGeoJsonSource(String sourceId) {
+    GeoJsonSource source = getGeoJsonSourceOrNull(sourceId);
+    if (source == null) {
+      return false;
+    }
+
+    source.setGeoJson(FeatureCollection.fromFeatures(new Feature[] {}));
+    addedFeaturesByLayer.remove(sourceId);
+
+    // Re-inserting moves it to the end: the LinkedHashSet order is the recycling age.
+    recycledGeoJsonSources.remove(sourceId);
+    recycledGeoJsonSources.add(sourceId);
+    trimRecycledGeoJsonSources();
+    return true;
+  }
+
+  /**
+   * Fills a live GeoJSON source with these properties instead of building another one. Returns
+   * true if it was handled and {@code SourcePropertyConverter.addSource} must not be called.
+   */
+  private boolean reuseGeoJsonSourceIfPossible(String id, Map<String, Object> properties) {
+    if (properties == null || !"geojson".equals(Convert.toString(properties.get("type")))) {
+      return false;
+    }
+
+    final String optionsKey = SourcePropertyConverter.geojsonOptionsKey(properties);
+    final GeoJsonSource existing = getGeoJsonSourceOrNull(id);
+
+    if (existing != null
+        && optionsKey.equals(geoJsonSourceOptions.get(id))
+        && SourcePropertyConverter.applyGeojsonData(existing, properties)) {
+      recycledGeoJsonSources.remove(id);
+      return true;
+    }
+
+    if (existing != null) {
+      // GeoJsonOptions (cluster, lineMetrics, tolerance...) only apply at construction time, so
+      // a different signature means rebuilding it. Rare path, and already covered by the
+      // native fix.
+      recycledGeoJsonSources.remove(id);
+      try {
+        style.removeSource(id);
+      } catch (IllegalStateException e) {
+        Log.w(TAG, "reuseGeoJsonSourceIfPossible: could not remove source: " + id);
+      }
+    }
+
+    geoJsonSourceOptions.put(id, optionsKey);
+    return false;
+  }
+
+  /** Actually destroys the oldest recycled sources once we go past the cap. */
+  private void trimRecycledGeoJsonSources() {
+    while (recycledGeoJsonSources.size() > MAX_RECYCLED_GEOJSON_SOURCES && style != null) {
+      String oldest = recycledGeoJsonSources.iterator().next();
+      recycledGeoJsonSources.remove(oldest);
+      geoJsonSourceOptions.remove(oldest);
+      try {
+        style.removeSource(oldest);
+      } catch (IllegalStateException e) {
+        Log.w(TAG, "trimRecycledGeoJsonSources: skipping removal of " + oldest);
+      }
+    }
   }
 
   private void setGeoJsonSource(String sourceName, String geojson) {
@@ -1409,6 +1536,13 @@ final class MapLibreMapController
           final Map<String, Object> properties = (Map<String, Object>) call.argument("properties");
 
           try {
+            // Reusing a live GeoJSON source avoids destroying it, which is what opens the
+            // use-after-free window, and also the "Source already exists" of an add over a
+            // live id.
+            if (reuseGeoJsonSourceIfPossible(id, properties)) {
+              result.success(null);
+              break;
+            }
             SourcePropertyConverter.addSource(id, properties, style);
             result.success(null);
           } catch (IllegalStateException e) {
@@ -1429,6 +1563,15 @@ final class MapLibreMapController
           }
 
           String sourceId = (String) call.argument("sourceId");
+
+          // GeoJSON sources are emptied and kept for reuse instead of being destroyed: with no
+          // destruction there is no dangling pointer for a conversion that may still be in
+          // flight.
+          if (recycleGeoJsonSource(sourceId)) {
+            result.success(null);
+            break;
+          }
+
           try {
             style.removeSource(sourceId);
             result.success(null);
@@ -1721,7 +1864,10 @@ final class MapLibreMapController
 
         List<String> sourceIds = new ArrayList<>();
         for (Source source : style.getSources()) {
-          sourceIds.add(source.getId());
+          // Recycled ones are still alive internally, but to the caller they were removed.
+          if (!recycledGeoJsonSources.contains(source.getId())) {
+            sourceIds.add(source.getId());
+          }
         }
 
         reply.put("sources", sourceIds);
