@@ -135,6 +135,24 @@ final class MapLibreMapController
   private int myLocationRenderMode = 0;
   private LocationEngineFactory myLocationEngineFactory = new LocationEngineFactory();
   private boolean disposed = false;
+
+  /**
+   * The MapView's real lifecycle state.
+   *
+   * <p>Jetpack replays the events it missed synchronously when you subscribe with
+   * Lifecycle#addObserver, so without these guards the observer re-ran
+   * onCreate/onStart/onResume on an already initialized MapView, and
+   * destroyMapViewIfNecessary called onStop/onDestroy without ever going through
+   * onPause. The MapView ended up destroyed from a state the SDK does not expect, and
+   * ~NativeMapView -> MapRenderer::reset() hangs waiting on a future its render thread
+   * never fulfills (an ANR with the main thread in std::__assoc_sub_state::wait).
+   *
+   * <p>With the flags each transition happens at most once and in the order the SDK
+   * expects. This is the same treatment the upstream plugin applies.
+   */
+  private boolean mapViewCreated = false;
+  private boolean mapViewStarted = false;
+  private boolean mapViewResumed = false;
   private boolean dragEnabled = true;
   private MethodChannel.Result mapReadyResult;
   private LocationComponent locationComponent = null;
@@ -2065,34 +2083,53 @@ final class MapLibreMapController
 
     mapViewContainer.removeView(mapView);
 
-    mapView.onStop();
-    mapView.onDestroy();
+    // Bring the lifecycle all the way down, in order, each step only if it applies:
+    // calling onDestroy on a MapView that is still resumed/started leaves the renderer
+    // in a state the SDK does not account for, and that is where MapRenderer::reset()
+    // ends up waiting on the render thread forever. This used to call onStop() and
+    // onDestroy() flat out, with no onPause() and without checking whether those
+    // transitions applied at all.
+    if (mapViewResumed) {
+      mapView.onPause();
+      mapViewResumed = false;
+    }
+    if (mapViewStarted) {
+      mapView.onStop();
+      mapViewStarted = false;
+    }
+    if (mapViewCreated) {
+      mapView.onDestroy();
+      mapViewCreated = false;
+    }
 
     mapView = null;
   }
 
   @Override
   public void onCreate(@NonNull LifecycleOwner owner) {
-    if (disposed) {
+    if (disposed || mapView == null || mapViewCreated) {
       return;
     }
     mapView.onCreate(null);
+    mapViewCreated = true;
   }
 
   @Override
   public void onStart(@NonNull LifecycleOwner owner) {
-    if (disposed) {
+    if (disposed || mapView == null || mapViewStarted) {
       return;
     }
     mapView.onStart();
+    mapViewStarted = true;
   }
 
   @Override
   public void onResume(@NonNull LifecycleOwner owner) {
-    if (disposed) {
+    if (disposed || mapView == null || mapViewResumed) {
       return;
     }
     mapView.onResume();
+    mapViewResumed = true;
     if (myLocationEnabled) {
       startListeningForLocationUpdates();
     }
@@ -2100,18 +2137,20 @@ final class MapLibreMapController
 
   @Override
   public void onPause(@NonNull LifecycleOwner owner) {
-    if (disposed) {
+    if (disposed || mapView == null || !mapViewResumed) {
       return;
     }
     mapView.onPause();
+    mapViewResumed = false;
   }
 
   @Override
   public void onStop(@NonNull LifecycleOwner owner) {
-    if (disposed) {
+    if (disposed || mapView == null || !mapViewStarted) {
       return;
     }
     mapView.onStop();
+    mapViewStarted = false;
   }
 
   @Override
