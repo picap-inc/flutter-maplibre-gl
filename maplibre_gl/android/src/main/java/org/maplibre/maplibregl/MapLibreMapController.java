@@ -137,18 +137,18 @@ final class MapLibreMapController
   private boolean disposed = false;
 
   /**
-   * Estado real del ciclo de vida del MapView.
+   * The MapView's real lifecycle state.
    *
-   * <p>Jetpack reproduce de forma sincrona los eventos que se perdio cuando uno se
-   * suscribe con Lifecycle#addObserver, asi que sin estas guardas el observer vuelve a
-   * llamar onCreate/onStart/onResume sobre un MapView ya inicializado, y
-   * destroyMapViewIfNecessary llama onStop/onDestroy aunque nunca se haya pasado por
-   * onPause. El MapView queda destruido desde un estado que el SDK no espera, y
-   * ~NativeMapView -> MapRenderer::reset() se cuelga esperando un future que su render
-   * thread nunca cumple (ANR con el hilo principal en std::__assoc_sub_state::wait).
+   * <p>Jetpack replays the events it missed synchronously when you subscribe with
+   * Lifecycle#addObserver, so without these guards the observer re-ran
+   * onCreate/onStart/onResume on an already initialized MapView, and
+   * destroyMapViewIfNecessary called onStop/onDestroy without ever going through
+   * onPause. The MapView ended up destroyed from a state the SDK does not expect, and
+   * ~NativeMapView -> MapRenderer::reset() hangs waiting on a future its render thread
+   * never fulfills (an ANR with the main thread in std::__assoc_sub_state::wait).
    *
-   * <p>Con los flags cada transicion ocurre a lo sumo una vez y en el orden que el SDK
-   * espera. Es el mismo tratamiento que hace el plugin upstream.
+   * <p>With the flags each transition happens at most once and in the order the SDK
+   * expects. This is the same treatment the upstream plugin applies.
    */
   private boolean mapViewCreated = false;
   private boolean mapViewStarted = false;
@@ -2083,11 +2083,12 @@ final class MapLibreMapController
 
     mapViewContainer.removeView(mapView);
 
-    // Bajar el ciclo de vida completo y en orden, cada paso solo si corresponde:
-    // onDestroy sobre un MapView que sigue resumed/started deja al renderer en un
-    // estado que el SDK no contempla, y ahi es donde MapRenderer::reset() se queda
-    // esperando para siempre al render thread. Antes se llamaba onStop() y
-    // onDestroy() a secas, sin onPause() y sin mirar si esas transiciones aplicaban.
+    // Bring the lifecycle all the way down, in order, each step only if it applies:
+    // calling onDestroy on a MapView that is still resumed/started leaves the renderer
+    // in a state the SDK does not account for, and that is where MapRenderer::reset()
+    // ends up waiting on the render thread forever. This used to call onStop() and
+    // onDestroy() flat out, with no onPause() and without checking whether those
+    // transitions applied at all.
     if (mapViewResumed) {
       mapView.onPause();
       mapViewResumed = false;
